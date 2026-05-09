@@ -1,0 +1,13 @@
+{
+    "pdfs_dir": "insert a path into a folder with documents",
+    "pages_dir": "insert a path where the processed documents will be stored",
+    "company_info": "insert information file path information about companies",
+    "questions": "insert a path to the question json",
+    "pars_dir": "insert a path where there will be a vector database",
+    "submission_file": "insert name of submission file",
+    "team_email": "insert youre email",
+    "submission_name": "insert submission name",
+    "api_base": "insert URL server API",
+    "api_key": "insert youre API key",
+    "model": "insert model name"
+}
