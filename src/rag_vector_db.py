@@ -1,29 +1,12 @@
-import os
-import json
 from typing import List
 import warnings
 warnings.filterwarnings('ignore')
 from langchain_chroma import Chroma
-from langchain_classic.storage import LocalFileStore, EncoderBackedStore
-
-
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-
-# основной класс-контейнер, с которым работают все методы. используется для представления документов в формате маркдаун
-# имеет полями page_content - текст файла и metadata - информация о файле
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
-import time
 
 
 import torch
-
-from pathlib import Path
-
-
-from docling.datamodel.document import InputDocument, ConversionResult
-
-from docling_core.types.doc import DoclingDocument, TableItem, PictureItem, TextItem
 
 
         
@@ -37,12 +20,11 @@ class DataBase:
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f'на карте: {device}')
         try:
-            # загрузка модели sentance-transformers для получения векторного представления документов
             self.embeddings = HuggingFaceEmbeddings(
-            model_name='sentence-transformers/all-mpnet-base-v2',      #'sentence-transformers/all-mpnet-base-v2',  'intfloat/multilingual-e5-small'     # название модели
-            model_kwargs={'device': device},                    # параметры модели (можно добавить девайс)
-            encode_kwargs={'normalize_embeddings': True, 'batch_size': 64},      # нормализация векторов
-            show_progress=True                               # можно убрать (отображает процесс загрузки модели)
+            model_name='sentence-transformers/all-mpnet-base-v2',      
+            model_kwargs={'device': device},
+            encode_kwargs={'normalize_embeddings': True, 'batch_size': 64}, 
+            show_progress=True
             )
         except Exception as e:
             print(f'error loading embeddings: {e}')
@@ -55,9 +37,7 @@ class DataBase:
 
 
     def add(self, chunks: List[Document]):
-        batch_size = 2048  # безопасный размер батча
-        
-        # Разбиваем chunks на батчи вручную
+        batch_size = 2048
         for i in range(0, len(chunks), batch_size):
             batch = chunks[i:i + batch_size]
             self.vectorstore.add_documents(batch)
@@ -66,7 +46,6 @@ class DataBase:
 
 
     def search(self, sha1: str, question: str) -> List[Document]:
-        # Ищем только в этом документе
         filtered_chunks = self.vectorstore.similarity_search_with_score(
             query=question,
             k=10,

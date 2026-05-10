@@ -102,10 +102,17 @@ class RAGSystem:
         4. If the context does not contain an answer to the question, say "N/A".
         5. Do NOT use phrases like "According to the context" or "Based on the provided documents". State the facts directly.
         6. Answer in the same language in which the question was asked.
-
-        Context example: "The company's shares increased by 20 percent during 2020 and amounted to $ 40 million, but in 2021 they fell by 10 percent and amounted to $ 36 million."
-        Question example: "How much are shares worth in 2021?"
-        An example of an answer: "The company's shares are worth 36 million dollars."
+        7. The answer should be a line in which the ANSWER to the question is GIVEN FIRST, then use a LINE BREAK as a SEPARATOR, then separated by a space (NO PUNCTUATION MARKS, ONLY SEPARATED BY A SPACE) list ONLY THOSE PAGE NUMBERS that helped answer the question.
+        8. If there are no page numbers in the context, THEN SPECIFY -1 AS THE PAGE NUMBER.
+        
+        Context example: 
+        "------- page 6 ------- 
+        The company's shares increased by 20 percent during 2020 and amounted to $ 40 million, but in 2021 they fell by 10 percent and amounted to $ 36 million."
+        Question example: 
+        "How much are shares worth in 2021?"
+        An example of an answer: 
+        "The company's shares are worth 36 million dollars.
+        6"
         
         Context:
         {context}
@@ -136,8 +143,10 @@ class RAGSystem:
             5. CRITICAL: Check if the table or section has a scale note (e.g., 'in thousands', '000s', 'in millions'). If it does, you MUST multiply the raw number accordingly. For example, '21,970' in a 'thousands' table must be returned as 21970000.
             6. DO NOT add any words, currency symbols, or units of measurement. Output ONLY the digits.
             7. BE CAREFUL, a comma is used as a thousands separator (e.g., 1,200  means 1200), while a period indicates a decimal point (e.g., 1.5). The answer SHOULD be in the units specified in the question.
-            
-            Answer (only a number or N/A):
+            8. The answer should be a line in which the ANSWER to the question is GIVEN FIRST, then use a LINE BREAK as a SEPARATOR, then separated by a space (NO PUNCTUATION MARKS, ONLY SEPARATED BY A SPACE) list ONLY THOSE PAGE NUMBERS that helped answer the question.
+            9. If there are no page numbers in the context, THEN SPECIFY -1 AS THE PAGE NUMBER.
+
+            Answer (only a number or N/A and pages nums):
             '''
         
         elif question.kind == 'boolean':
@@ -146,8 +155,10 @@ class RAGSystem:
             2. The answer should ONLY be "true" or "false" (lowercase).
             3. If the answer is not found, answer "N/A".
             4. Do not add explanations or any other words.
+            5. The answer should be a line in which the ANSWER to the question is GIVEN FIRST, then use a LINE BREAK as a SEPARATOR, then separated by a space (NO PUNCTUATION MARKS, ONLY SEPARATED BY A SPACE) list ONLY THOSE PAGE NUMBERS that helped answer the question.
+            6. If there are no page numbers in the context, THEN SPECIFY -1 AS THE PAGE NUMBER.
                         
-            Response (only true/false or N/A):
+            Response (only true/false or N/A and pages nums)):
             '''
         
         elif question.kind == 'names':
@@ -158,8 +169,10 @@ class RAGSystem:
             4. If the list is empty, return an empty array [].
             5. Do NOT wrap the JSON in markdown code blocks like ```json ... ```.
             6. Do not add explanations, just a JSON array.
+            7. The answer should be a line in which the ANSWER to the question is GIVEN FIRST, then use a LINE BREAK as a SEPARATOR, then separated by a space (NO PUNCTUATION MARKS, ONLY SEPARATED BY A SPACE) list ONLY THOSE PAGE NUMBERS that helped answer the question.
+            8. If there are no page numbers in the context, THEN SPECIFY -1 AS THE PAGE NUMBER.
             
-            Response (JSON array only):
+            Response (JSON array and pages nums only):
             '''
         elif question.kind == 'name':
             return base_instructions + '''
@@ -167,8 +180,10 @@ class RAGSystem:
             2. The response must COMPLETELY REPEAT the form from the context.
             3. If you couldn't find it, return N/A.
             4. DON'T ADD ANY EXPLANATIONS, just a response from the context.
-
-            Response (only ONE name FROM THE CONTEXT, a name and the like that ANSWERS THE QUESTION ASKED):
+            5. The answer should be a line in which the ANSWER to the question is GIVEN FIRST, then use a LINE BREAK as a SEPARATOR, then separated by a space (NO PUNCTUATION MARKS, ONLY SEPARATED BY A SPACE) list ONLY THOSE PAGE NUMBERS that helped answer the question.
+            6. If there are no page numbers in the context, THEN SPECIFY -1 AS THE PAGE NUMBER.
+            
+            Response (only ONE name FROM THE CONTEXT, a name and the like that ANSWERS THE QUESTION ASKED and pages nums only):
             '''
 
 
@@ -199,10 +214,22 @@ class RAGSystem:
     def _create_llm_request_for_question(self, vector_store: DataBase, sha1: str, question: str, PROMPT: ChatPromptTemplate):
         chain = PROMPT | self.llm
 
+        doc_context = vector_store.search(sha1, question)
         new_question = self._main_thing_question(question)
-        doc_context = vector_store.search(sha1, new_question)
+        doc_context += vector_store.search(sha1, new_question)
+        doc_context.sort(key=lambda d: d.metadata.get('page_ind', 0))
+        used_doc = []
+        context =''
+        for doc in doc_context:
+            if doc.metadata['page_ind'] in used_doc:
+                continue
 
-        context = "\n-------\n".join([doc.page_content for doc in doc_context])
+            context += f'------- page {doc.metadata['page_ind']} -------'
+            context += doc.page_content
+            used_doc.append(doc.metadata['page_ind'])
+
+            
+        
         result = chain.invoke({'context': context, 'question': question})
 
         return result, doc_context
@@ -235,9 +262,18 @@ class RAGSystem:
                                                                       company_to_hash[company], 
                                                                       simple_question, 
                                                                       PROMPT)
-            
-            context = context + company + ': ' + new_context.content + '\n'
-            source_documents.extend(docs)
+            answ = new_context.content
+
+            print(answ)
+
+            index = answ.find('\n')
+            if index == -1:
+                pages = []
+            else:
+                pages = list(map(int, answ[index:].split()))
+            answ = answ[:index]
+            context = context + company + ': ' + answ + '\n'
+            source_documents.extend([doc for doc in docs if doc.metadata['page_ind'] in pages])
 
         complex_prompt_template = self._create_prompt_for_question_type(question)
         COMPLEX_PROMPT = ChatPromptTemplate.from_messages([
@@ -333,10 +369,19 @@ class RAGSystem:
                     ("user", prompt_template)
                 ])
                 result, source_documents = self._create_llm_request_for_question(vector_store, sha1, question.text, PROMPT)
+                answ = result.content
+
+                print(answ)
+
+                index = answ.find('\n')
+                pages = list(map(int, answ[index:].split()))
+                answ = answ[:index]
+                source_documents = [doc for doc in source_documents if doc.metadata['page_ind'] in pages]
             else:
                 result, source_documents = self._create_llm_request_for_complex_question(vector_store, company_to_hash, question)
+                answ = result.content
 
-            parsed_value = self._parse_answer_by_kind(result.content, question.kind)
+            parsed_value = self._parse_answer_by_kind(answ, question.kind)
             references = []
 
             if parsed_value != 'N/A':
