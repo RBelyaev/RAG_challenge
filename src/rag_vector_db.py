@@ -4,14 +4,8 @@ warnings.filterwarnings('ignore')
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
-
-
 import torch
 
-
-        
-
-    
 
 class DataBase:
     def __init__(self, doc_directory: str, vector_directory: str):
@@ -34,7 +28,6 @@ class DataBase:
             )
 
 
-
     def add(self, chunks: List[Document]):
         batch_size = 2048
         for i in range(0, len(chunks), batch_size):
@@ -42,8 +35,6 @@ class DataBase:
             self.vectorstore.add_documents(batch)
 
         
-
-
     def search(self, sha1: str, question: str) -> List[Document]:
         filtered_chunks = self.vectorstore.similarity_search_with_score(
             query=question,

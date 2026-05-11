@@ -11,13 +11,10 @@ from docling.datamodel.pipeline_options import PdfPipelineOptions
 from docling.datamodel.accelerator_options import AcceleratorDevice, AcceleratorOptions
 from docling.document_converter import DocumentConverter, PdfFormatOption
 from docling.chunking import HybridChunker
-
-from langchain_core.documents import Document
-
-
-
 from docling_core.types.doc import DoclingDocument, TableItem
 from docling.datamodel.base_models import InputFormat
+
+from langchain_core.documents import Document
 
 
 def calculate_pdf_sha1(pdf_path: str) -> str:
