@@ -18,7 +18,6 @@ class DataBase:
         self.doc_directory = doc_directory
         self.vector_directory = vector_directory
         device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        print(f'на карте: {device}')
         try:
             self.embeddings = HuggingFaceEmbeddings(
             model_name='sentence-transformers/all-mpnet-base-v2',      

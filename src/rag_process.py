@@ -264,7 +264,6 @@ class RAGSystem:
                                                                       PROMPT)
             answ = new_context.content
 
-            print(answ)
 
             index = answ.find('\n')
             if index == -1:
@@ -371,7 +370,6 @@ class RAGSystem:
                 result, source_documents = self._create_llm_request_for_question(vector_store, sha1, question.text, PROMPT)
                 answ = result.content
 
-                print(answ)
 
                 index = answ.find('\n')
                 pages = list(map(int, answ[index:].split()))
@@ -380,6 +378,8 @@ class RAGSystem:
             else:
                 result, source_documents = self._create_llm_request_for_complex_question(vector_store, company_to_hash, question)
                 answ = result.content
+                index = answ.find('\n')
+                answ = answ[:index]
 
             parsed_value = self._parse_answer_by_kind(answ, question.kind)
             references = []
